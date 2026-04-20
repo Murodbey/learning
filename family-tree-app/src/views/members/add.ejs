@@ -1,4 +1,10 @@
-<h1>Add New Family Member</h1>
+<section class="page-header">
+    <div>
+        <p class="eyebrow">New relative</p>
+        <h1>Add Relative</h1>
+        <p>Add someone and place them in your tree.</p>
+    </div>
+</section>
 
 <form method="POST" class="form">
     <div class="form-group">
@@ -30,33 +36,30 @@
 
     <div class="relationship-box">
         <h3>Relationship</h3>
-        <% if (!selfMember) { %>
-            <label class="checkbox-field">
-                <input type="checkbox" name="is_self" value="1" <% if (data.is_self) { %>checked<% } %>>
-                This person is me
-            </label>
-            <p class="help-text">Set yourself once, then future relatives can be added as your parent, child, spouse, or sibling.</p>
-        <% } else { %>
-            <p class="help-text">Tell the tree how this new person is connected.</p>
+        <p class="help-text">Tell the tree how this new person is connected to you.</p>
 
-            <div class="form-group">
-                <label for="relationship_type">This new person is my</label>
-                <select id="relationship_type" name="relationship_type">
-                    <option value="">-- Choose relationship --</option>
-                    <option value="parent" <% if (data.relationship_type=='parent' ) { %>selected<% } %>>Parent</option>
-                    <option value="child" <% if (data.relationship_type=='child' ) { %>selected<% } %>>Child</option>
-                    <option value="spouse" <% if (data.relationship_type=='spouse' ) { %>selected<% } %>>Spouse</option>
-                    <option value="sibling" <% if (data.relationship_type=='sibling' ) { %>selected<% } %>>Sibling</option>
-                </select>
-            </div>
+        <div class="form-group">
+            <label for="relationship_type">This new person is my *</label>
+            <select id="relationship_type" name="relationship_type" required>
+                <option value="">-- Choose relationship --</option>
+                <% relationshipTypes.forEach(type=> { %>
+                    <option value="<%= type.value %>" <% if (data.relationship_type==type.value) { %>selected<% } %>>
+                        <%= type.label %>
+                    </option>
+                <% }); %>
+            </select>
+        </div>
 
+        <% if (selfMember) { %>
             <input type="hidden" name="related_member_id" value="<%= selfMember.id %>">
             <p class="help-text">Connected to <strong><%= selfMember.first_name %> <%= selfMember.last_name %></strong>.</p>
+        <% } else { %>
+            <p class="help-text">Your profile is created automatically when you sign up or log in.</p>
         <% } %>
     </div>
 
     <div class="form-actions">
-        <button type="submit" class="btn btn-primary">✓ Add Member</button>
-        <a href="/members" class="btn btn-secondary">✕ Cancel</a>
+        <button type="submit" class="btn btn-primary">Add Relative</button>
+        <a href="/members" class="btn btn-secondary">Cancel</a>
     </div>
 </form>

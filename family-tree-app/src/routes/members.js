@@ -1,8 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
-
-const relationshipTypes = ['parent', 'child', 'spouse', 'sibling'];
+const asyncHandler = require('../asyncHandler');
+const {
+    relationshipTypes,
+    relationshipTypeValues,
+    inverseRelationship,
+    relationshipLabel
+} = require('../relationshipTypes');
+const { getRelationshipsForMember } = require('../treeService');
 
 const getMembersForUser = (userId) => {
     return db.all(
@@ -23,69 +29,138 @@ const getSelfMember = async (req) => {
 };
 
 const renderAddMember = async (req, res, options = {}) => {
-    const members = await getMembersForUser(req.currentUser.id);
     const selfMember = await getSelfMember(req);
 
     res.status(options.status || 200).render('members/add', {
         data: options.data || {},
         error: options.error || null,
-        members,
-        selfMember
+        selfMember,
+        relationshipTypes
     });
 };
 
-const validateMemberFields = (req, res, next) => {
-    const { first_name, last_name } = req.body;
-    if (!first_name || !last_name) {
-        if (req.params.id) {
-            return res.status(400).render('members/edit', {
-                error: 'First name and last name are required.',
-                member: { id: req.params.id, ...req.body }
-            });
-        }
-
-        return renderAddMember(req, res, {
-            status: 400,
-            data: req.body,
-            error: 'First name and last name are required.'
-        });
+const getRelationshipToSelf = async (req, memberId) => {
+    if (!req.currentUser.self_member_id || Number(memberId) === Number(req.currentUser.self_member_id)) {
+        return null;
     }
-    next();
+
+    return db.get(`
+        SELECT *
+        FROM relationships
+        WHERE user_id = ?
+            AND (
+                (member_id_1 = ? AND member_id_2 = ?)
+                OR (member_id_1 = ? AND member_id_2 = ?)
+            )
+        ORDER BY created_at DESC
+        LIMIT 1
+    `, [
+        req.currentUser.id,
+        memberId,
+        req.currentUser.self_member_id,
+        req.currentUser.self_member_id,
+        memberId
+    ]);
 };
 
-router.get('/', async (req, res) => {
+const getRelationshipTypeToSelf = (relationship, memberId) => {
+    if (!relationship) {
+        return '';
+    }
+
+    return Number(relationship.member_id_1) === Number(memberId)
+        ? relationship.relationship_type
+        : inverseRelationship(relationship.relationship_type);
+};
+
+const renderEditMember = async (req, res, options = {}) => {
+    const member = options.member || await db.get(
+        'SELECT * FROM family_members WHERE id = ? AND user_id = ?',
+        [req.params.id, req.currentUser.id]
+    );
+
+    if (!member) {
+        return res.status(404).render('404', { message: 'Family member not found' });
+    }
+
+    const selfRelationship = await getRelationshipToSelf(req, member.id);
+
+    res.status(options.status || 200).render('members/edit', {
+        member,
+        error: options.error || null,
+        relationshipTypes,
+        relationshipToSelf: options.relationshipToSelf !== undefined
+            ? options.relationshipToSelf
+            : getRelationshipTypeToSelf(selfRelationship, member.id),
+        isSelfMember: Number(req.currentUser.self_member_id) === Number(member.id)
+    });
+};
+
+const validateMemberFields = async (req, res, next) => {
+    try {
+        const { first_name, last_name } = req.body;
+        if (!first_name || !last_name) {
+            if (req.params.id) {
+                return await renderEditMember(req, res, {
+                    status: 400,
+                    error: 'First name and last name are required.',
+                    member: { id: req.params.id, ...req.body },
+                    relationshipToSelf: req.body.relationship_type || ''
+                });
+            }
+
+            return await renderAddMember(req, res, {
+                status: 400,
+                data: req.body,
+                error: 'First name and last name are required.'
+            });
+        }
+        next();
+    } catch (error) {
+        next(error);
+    }
+};
+
+router.get('/', asyncHandler(async (req, res) => {
     const members = await db.all(
         'SELECT * FROM family_members WHERE user_id = ? ORDER BY last_name, first_name',
         [req.currentUser.id]
     );
     res.render('members/list', { members });
-});
+}));
 
-router.get('/add', async (req, res) => {
+router.get('/add', asyncHandler(async (req, res) => {
     await renderAddMember(req, res);
-});
+}));
 
-router.post('/add', validateMemberFields, async (req, res) => {
+router.post('/add', validateMemberFields, asyncHandler(async (req, res) => {
     const {
         first_name,
         last_name,
         date_of_birth,
         location_of_birth,
         current_location,
-        is_self,
         related_member_id,
         relationship_type
     } = req.body;
 
-    if (relationship_type && !related_member_id) {
+    if (!req.currentUser.self_member_id) {
         return await renderAddMember(req, res, {
             status: 400,
             data: req.body,
-            error: 'Choose who this person is related to.'
+            error: 'Your profile is still being prepared. Please refresh and try again.'
         });
     }
 
-    if (relationship_type && !relationshipTypes.includes(relationship_type)) {
+    if (!relationship_type) {
+        return await renderAddMember(req, res, {
+            status: 400,
+            data: req.body,
+            error: 'Choose who this person is to you.'
+        });
+    }
+
+    if (!relationshipTypeValues.includes(relationship_type)) {
         return await renderAddMember(req, res, {
             status: 400,
             data: req.body,
@@ -93,16 +168,16 @@ router.post('/add', validateMemberFields, async (req, res) => {
         });
     }
 
-    const relatedMember = related_member_id ? await db.get(
+    const relatedMember = await db.get(
         'SELECT id FROM family_members WHERE id = ? AND user_id = ?',
-        [related_member_id, req.currentUser.id]
-    ) : null;
+        [related_member_id || req.currentUser.self_member_id, req.currentUser.id]
+    );
 
-    if (related_member_id && !relatedMember) {
+    if (!relatedMember) {
         return await renderAddMember(req, res, {
             status: 400,
             data: req.body,
-            error: 'Choose a related person from your family tree.'
+            error: 'Your profile was not found. Please refresh and try again.'
         });
     }
 
@@ -113,32 +188,22 @@ router.post('/add', validateMemberFields, async (req, res) => {
         [req.currentUser.id, first_name, last_name, date_of_birth, location_of_birth, current_location]
     );
 
-    if (is_self && !req.currentUser.self_member_id) {
+    try {
         await db.run(
-            'UPDATE users SET self_member_id = ? WHERE id = ?',
-            [result.lastID, req.currentUser.id]
+            `INSERT INTO relationships (user_id, member_id_1, member_id_2, relationship_type)
+            VALUES (?, ?, ?, ?)`,
+            [req.currentUser.id, result.lastID, relatedMember.id, relationship_type]
         );
-        req.currentUser.self_member_id = result.lastID;
-    }
-
-    if (relatedMember && relationship_type) {
-        try {
-            await db.run(
-                `INSERT INTO relationships (user_id, member_id_1, member_id_2, relationship_type)
-                VALUES (?, ?, ?, ?)`,
-                [req.currentUser.id, result.lastID, relatedMember.id, relationship_type]
-            );
-        } catch (error) {
-            if (!error.message || !error.message.includes('UNIQUE')) {
-                throw error;
-            }
+    } catch (error) {
+        if (!error.message || !error.message.includes('UNIQUE')) {
+            throw error;
         }
     }
 
     res.redirect(`/members/${result.lastID}`);
-});
+}));
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', asyncHandler(async (req, res) => {
     const memberId = req.params.id;
     const member = await db.get(
         'SELECT * FROM family_members WHERE id = ? AND user_id = ?',
@@ -149,33 +214,28 @@ router.get('/:id', async (req, res) => {
         return res.status(404).render('404', { message: 'Family member not found' });
     }
 
-    const relationships = await db.all(`
-        SELECT
-            relationships.id,
-            relationships.relationship_type,
-            relationships.member_id_1,
-            relationships.member_id_2,
-            CASE
-                WHEN relationships.member_id_1 = ? THEN relationships.member_id_2
-                ELSE relationships.member_id_1
-            END AS related_member_id,
-            related.first_name AS related_first_name,
-            related.last_name AS related_last_name
-        FROM relationships
-        JOIN family_members AS related
-            ON related.id = CASE
-                WHEN relationships.member_id_1 = ? THEN relationships.member_id_2
-                ELSE relationships.member_id_1
-            END
-        WHERE relationships.user_id = ?
-            AND (relationships.member_id_1 = ? OR relationships.member_id_2 = ?)
-        ORDER BY relationships.relationship_type, related.last_name, related.first_name
-    `, [memberId, memberId, req.currentUser.id, memberId, memberId]);
+    const relationships = await getRelationshipsForMember(req.currentUser.id, memberId);
 
-    res.render('members/detail', { member, relationships });
-});
+    const relationshipsWithLabels = relationships.map((relationship) => {
+        const displayType = Number(relationship.member_id_1) === Number(memberId)
+            ? inverseRelationship(relationship.relationship_type)
+            : relationship.relationship_type;
 
-router.get('/:id/edit', async (req, res) => {
+        return {
+            ...relationship,
+            display_label: relationshipLabel(displayType)
+        };
+    });
+
+    res.render('members/detail', { member, relationships: relationshipsWithLabels });
+}));
+
+router.get('/:id/edit', asyncHandler(async (req, res) => {
+    await renderEditMember(req, res);
+}));
+
+router.post('/:id/edit', validateMemberFields, asyncHandler(async (req, res) => {
+    const { first_name, last_name, date_of_birth, location_of_birth, current_location, relationship_type } = req.body;
     const member = await db.get(
         'SELECT * FROM family_members WHERE id = ? AND user_id = ?',
         [req.params.id, req.currentUser.id]
@@ -185,11 +245,26 @@ router.get('/:id/edit', async (req, res) => {
         return res.status(404).render('404', { message: 'Family member not found' });
     }
 
-    res.render('members/edit', { member });
-});
+    const isSelfMember = Number(req.currentUser.self_member_id) === Number(req.params.id);
 
-router.post('/:id/edit', validateMemberFields, async (req, res) => {
-    const { first_name, last_name, date_of_birth, location_of_birth, current_location } = req.body;
+    if (!isSelfMember && !relationship_type) {
+        return await renderEditMember(req, res, {
+            status: 400,
+            error: 'Choose who this person is to you.',
+            member: { ...member, ...req.body },
+            relationshipToSelf: relationship_type || ''
+        });
+    }
+
+    if (!isSelfMember && !relationshipTypeValues.includes(relationship_type)) {
+        return await renderEditMember(req, res, {
+            status: 400,
+            error: 'Choose a valid relationship type.',
+            member: { ...member, ...req.body },
+            relationshipToSelf: relationship_type || ''
+        });
+    }
+
     await db.run(
         `UPDATE family_members
         SET first_name = ?, last_name = ?, date_of_birth = ?, location_of_birth = ?,
@@ -197,33 +272,37 @@ router.post('/:id/edit', validateMemberFields, async (req, res) => {
         WHERE id = ? AND user_id = ?`,
         [first_name, last_name, date_of_birth, location_of_birth, current_location, req.params.id, req.currentUser.id]
     );
-    res.redirect(`/members/${req.params.id}`);
-});
 
-router.post('/:id/set-self', async (req, res) => {
-    const member = await db.get(
-        'SELECT id FROM family_members WHERE id = ? AND user_id = ?',
-        [req.params.id, req.currentUser.id]
-    );
+    if (!isSelfMember) {
+        await db.run(
+            `DELETE FROM relationships
+            WHERE user_id = ?
+                AND (
+                    (member_id_1 = ? AND member_id_2 = ?)
+                    OR (member_id_1 = ? AND member_id_2 = ?)
+                )`,
+            [
+                req.currentUser.id,
+                req.params.id,
+                req.currentUser.self_member_id,
+                req.currentUser.self_member_id,
+                req.params.id
+            ]
+        );
 
-    if (!member) {
-        return res.status(404).render('404', { message: 'Family member not found' });
+        await db.run(
+            `INSERT INTO relationships (user_id, member_id_1, member_id_2, relationship_type)
+            VALUES (?, ?, ?, ?)`,
+            [req.currentUser.id, req.params.id, req.currentUser.self_member_id, relationship_type]
+        );
     }
 
-    await db.run(
-        'UPDATE users SET self_member_id = ? WHERE id = ?',
-        [member.id, req.currentUser.id]
-    );
+    res.redirect(`/members/${req.params.id}`);
+}));
 
-    res.redirect(`/members/${member.id}`);
-});
-
-router.post('/:id/delete', async (req, res) => {
+router.post('/:id/delete', asyncHandler(async (req, res) => {
     if (Number(req.currentUser.self_member_id) === Number(req.params.id)) {
-        await db.run(
-            'UPDATE users SET self_member_id = NULL WHERE id = ?',
-            [req.currentUser.id]
-        );
+        return res.status(400).render('404', { message: 'Your own profile is required for your tree.' });
     }
 
     await db.run(
@@ -231,6 +310,6 @@ router.post('/:id/delete', async (req, res) => {
         [req.params.id, req.currentUser.id]
     );
     res.redirect('/members');
-});
+}));
 
 module.exports = router;

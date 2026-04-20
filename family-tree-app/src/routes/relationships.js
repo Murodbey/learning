@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
-
-const relationshipTypes = ['parent', 'child', 'spouse', 'sibling'];
+const asyncHandler = require('../asyncHandler');
+const { relationshipTypes, relationshipTypeValues } = require('../relationshipTypes');
 
 const renderAddRelationship = async (req, res, options = {}) => {
     const members = await db.all(
@@ -12,16 +12,17 @@ const renderAddRelationship = async (req, res, options = {}) => {
 
     res.status(options.status || 200).render('relationships/add', {
         members,
+        relationshipTypes,
         data: options.data || {},
         error: options.error || null
     });
 };
 
-router.get('/add', async (req, res) => {
+router.get('/add', asyncHandler(async (req, res) => {
     await renderAddRelationship(req, res);
-});
+}));
 
-router.post('/add', async (req, res) => {
+router.post('/add', asyncHandler(async (req, res) => {
     const { member_id_1, member_id_2, relationship_type } = req.body;
     const data = { member_id_1, member_id_2, relationship_type };
 
@@ -41,7 +42,7 @@ router.post('/add', async (req, res) => {
         });
     }
 
-    if (!relationshipTypes.includes(relationship_type)) {
+    if (!relationshipTypeValues.includes(relationship_type)) {
         return await renderAddRelationship(req, res, {
             status: 400,
             data,
@@ -78,15 +79,15 @@ router.post('/add', async (req, res) => {
             error: isDuplicate ? 'That relationship already exists.' : 'An error occurred while adding the relationship.'
         });
     }
-});
+}));
 
-router.post('/:id/delete', async (req, res) => {
+router.post('/:id/delete', asyncHandler(async (req, res) => {
     await db.run(
         'DELETE FROM relationships WHERE id = ? AND user_id = ?',
         [req.params.id, req.currentUser.id]
     );
 
     res.redirect(req.body.referrer || '/members');
-});
+}));
 
 module.exports = router;

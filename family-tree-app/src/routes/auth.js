@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
+const asyncHandler = require('../asyncHandler');
 const {
     hashPassword,
     verifyPassword,
+    ensureSelfMember,
     loginUser,
     logoutUser,
     redirectIfAuthenticated
@@ -13,7 +15,7 @@ router.get('/login', redirectIfAuthenticated, (req, res) => {
     res.render('auth/login', { data: {}, error: null });
 });
 
-router.post('/login', redirectIfAuthenticated, async (req, res) => {
+router.post('/login', redirectIfAuthenticated, asyncHandler(async (req, res) => {
     const { email = '', password = '' } = req.body;
     const data = { email: email.trim().toLowerCase() };
 
@@ -27,13 +29,13 @@ router.post('/login', redirectIfAuthenticated, async (req, res) => {
 
     loginUser(res, user.id);
     res.redirect('/');
-});
+}));
 
 router.get('/signup', redirectIfAuthenticated, (req, res) => {
     res.render('auth/signup', { data: {}, error: null });
 });
 
-router.post('/signup', redirectIfAuthenticated, async (req, res) => {
+router.post('/signup', redirectIfAuthenticated, asyncHandler(async (req, res) => {
     const { name = '', email = '', password = '', confirm_password = '' } = req.body;
     const data = {
         name: name.trim(),
@@ -74,9 +76,16 @@ router.post('/signup', redirectIfAuthenticated, async (req, res) => {
         [data.name, data.email, hashPassword(password)]
     );
 
+    await ensureSelfMember({
+        id: result.lastID,
+        name: data.name,
+        email: data.email,
+        self_member_id: null
+    });
+
     loginUser(res, result.lastID);
     res.redirect('/');
-});
+}));
 
 router.post('/logout', (req, res) => {
     logoutUser(res);

@@ -1,25 +1,128 @@
-<section class="hero">
-    <p class="eyebrow">Welcome, <%= currentUser.name %></p>
-    <h1>Your Family Tree</h1>
-    <p>Organize and manage your family relationships in one private place.</p>
+<% const hasPeople = (people) => people && people.length > 0; %>
+<% const totalRelatives = Object.values(treeGroups).reduce((sum, people) => sum + people.length, 0); %>
+<% const hasGrandparents = hasPeople(treeGroups.grandparents); %>
+<% const hasParents = hasPeople(treeGroups.parents); %>
+<% const hasSiblings = hasPeople(treeGroups.siblings); %>
+<% const hasSpouse = hasPeople(treeGroups.spouse); %>
+<% const hasChildren = hasPeople(treeGroups.children); %>
+<% const hasGrandchildren = hasPeople(treeGroups.grandchildren); %>
+<% const hasExtended = hasPeople(treeGroups.aunt_uncle) || hasPeople(treeGroups.cousins) || hasPeople(treeGroups.niece_nephew); %>
+<% const hasAncestors = hasGrandparents || hasParents; %>
+<% const hasDescendants = hasChildren || hasGrandchildren; %>
+
+<% const renderPerson = (person) => { %>
+    <a href="/members/<%= person.id %>" class="tree-person">
+        <span class="person-name"><%= person.first_name %> <%= person.last_name %></span>
+        <% if (person.relationshipLabel) { %>
+            <span class="person-role"><%= person.relationshipLabel %></span>
+        <% } %>
+    </a>
+<% }; %>
+
+<% const renderGroup = (title, people) => { %>
+    <% if (hasPeople(people)) { %>
+        <section class="tree-group">
+            <h3><%= title %></h3>
+            <div class="tree-people">
+                <% people.forEach(person=> { %>
+                    <% renderPerson(person); %>
+                <% }); %>
+            </div>
+        </section>
+    <% } %>
+<% }; %>
+
+<section class="tree-hero">
+    <div>
+        <p class="eyebrow">Welcome, <%= currentUser.name %></p>
+        <h1>Your Family Tree</h1>
+        <p>Your tree grows only from the relatives you add.</p>
+    </div>
+    <a href="/members/add" class="btn btn-primary">Add Relative</a>
 </section>
 
-<div class="quick-actions">
-    <div class="action-card">
-        <h3>👥 Family Members</h3>
-        <p>View and manage all family members</p>
-        <a href="/members" class="btn btn-primary">View Members</a>
-    </div>
+<% if (selfMember) { %>
+    <section class="family-tree">
+        <% if (totalRelatives === 0) { %>
+            <section class="tree-start">
+                <section class="tree-self">
+                    <span class="person-role">Me</span>
+                    <h2><%= selfMember.first_name %> <%= selfMember.last_name %></h2>
+                    <a href="/members/<%= selfMember.id %>" class="tree-self-link">View profile</a>
+                </section>
+                <div>
+                    <h2>Start with your first relative</h2>
+                    <p>Add a parent, sibling, child, grandparent, cousin, aunt, uncle, niece, nephew, or spouse.</p>
+                    <a href="/members/add" class="btn btn-primary">Add Relative</a>
+                </div>
+            </section>
+        <% } else { %>
+            <% if (hasGrandparents) { %>
+                <div class="tree-level tree-level-top">
+                    <% renderGroup('Grandparents', treeGroups.grandparents); %>
+                </div>
+            <% } %>
 
-    <div class="action-card">
-        <h3>➕ Add New Member</h3>
-        <p>Add a new family member to your tree</p>
-        <a href="/members/add" class="btn btn-primary">Add Member</a>
-    </div>
+            <% if (hasGrandparents && (hasParents || hasSiblings || hasSpouse || hasDescendants)) { %>
+                <div class="tree-connector"></div>
+            <% } %>
 
-    <div class="action-card">
-        <h3>🔗 Add Relationship</h3>
-        <p>Connect family members with relationships</p>
-        <a href="/relationships/add" class="btn btn-primary">Add Relationship</a>
-    </div>
-</div>
+            <% if (hasParents) { %>
+                <div class="tree-level tree-level-middle">
+                    <% renderGroup('Parents', treeGroups.parents); %>
+                </div>
+            <% } %>
+
+            <% if (hasParents && (hasSiblings || hasSpouse || hasDescendants)) { %>
+                <div class="tree-connector"></div>
+            <% } %>
+
+            <div class="tree-core-row <%= (!hasSiblings && !hasSpouse) ? 'is-centered' : '' %>">
+                <% if (hasSiblings) { %>
+                    <% renderGroup('Siblings', treeGroups.siblings); %>
+                <% } %>
+
+                <section class="tree-self">
+                    <span class="person-role">Me</span>
+                    <h2><%= selfMember.first_name %> <%= selfMember.last_name %></h2>
+                    <a href="/members/<%= selfMember.id %>" class="tree-self-link">View profile</a>
+                </section>
+
+                <% if (hasSpouse) { %>
+                    <% renderGroup('Spouse / Partner', treeGroups.spouse); %>
+                <% } %>
+            </div>
+
+            <% if (hasChildren) { %>
+                <div class="tree-connector"></div>
+                <div class="tree-level">
+                    <% renderGroup('Children', treeGroups.children); %>
+                </div>
+            <% } %>
+
+            <% if (hasChildren && hasGrandchildren) { %>
+                <div class="tree-connector"></div>
+            <% } %>
+
+            <% if (hasGrandchildren) { %>
+                <div class="tree-level">
+                    <% renderGroup('Grandchildren', treeGroups.grandchildren); %>
+                </div>
+            <% } %>
+        <% } %>
+    </section>
+
+    <% if (hasExtended) { %>
+        <section class="extended-family">
+            <% renderGroup('Aunts / Uncles', treeGroups.aunt_uncle); %>
+            <% renderGroup('Cousins', treeGroups.cousins); %>
+            <% renderGroup('Nieces / Nephews', treeGroups.niece_nephew); %>
+        </section>
+    <% } %>
+<% } else { %>
+    <section class="empty-page">
+        <h1>Your profile is getting ready</h1>
+        <p>Refresh the page, then start adding relatives.</p>
+        <a href="/members/add" class="btn btn-primary">Add Relative</a>
+    </section>
+<% } %>

@@ -68,19 +68,65 @@ const verifyToken = (token) => {
     }
 };
 
-const attachCurrentUser = async (req, res, next) => {
-    const token = readCookie(req, COOKIE_NAME);
-    const session = verifyToken(token);
+const splitDisplayName = (name) => {
+    const parts = name.trim().split(/\s+/);
+    const firstName = parts.shift() || 'Me';
+    const lastName = parts.join(' ') || 'Profile';
+    return { firstName, lastName };
+};
 
-    req.currentUser = null;
-    res.locals.currentUser = null;
-
-    if (session) {
-        req.currentUser = await db.get('SELECT id, name, email, self_member_id FROM users WHERE id = ?', [session.userId]);
-        res.locals.currentUser = req.currentUser;
+const ensureSelfMember = async (user) => {
+    if (!user) {
+        return null;
     }
 
-    next();
+    if (user.self_member_id) {
+        const existingSelf = await db.get(
+            'SELECT id FROM family_members WHERE id = ? AND user_id = ?',
+            [user.self_member_id, user.id]
+        );
+
+        if (existingSelf) {
+            return user;
+        }
+    }
+
+    const { firstName, lastName } = splitDisplayName(user.name);
+    const result = await db.run(
+        `INSERT INTO family_members (user_id, first_name, last_name)
+        VALUES (?, ?, ?)`,
+        [user.id, firstName, lastName]
+    );
+
+    await db.run(
+        'UPDATE users SET self_member_id = ? WHERE id = ?',
+        [result.lastID, user.id]
+    );
+
+    return {
+        ...user,
+        self_member_id: result.lastID
+    };
+};
+
+const attachCurrentUser = async (req, res, next) => {
+    try {
+        const token = readCookie(req, COOKIE_NAME);
+        const session = verifyToken(token);
+
+        req.currentUser = null;
+        res.locals.currentUser = null;
+
+        if (session) {
+            req.currentUser = await db.get('SELECT id, name, email, self_member_id FROM users WHERE id = ?', [session.userId]);
+            req.currentUser = await ensureSelfMember(req.currentUser);
+            res.locals.currentUser = req.currentUser;
+        }
+
+        next();
+    } catch (error) {
+        next(error);
+    }
 };
 
 const requireAuth = (req, res, next) => {
@@ -115,6 +161,7 @@ const logoutUser = (res) => {
 module.exports = {
     hashPassword,
     verifyPassword,
+    ensureSelfMember,
     attachCurrentUser,
     requireAuth,
     redirectIfAuthenticated,

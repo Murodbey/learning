@@ -1,4 +1,10 @@
-<h1>Edit Family Member</h1>
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Edit profile</p>
+        <h1>Edit Family Member</h1>
+        <p>Update personal details and how this person connects to you.</p>
+    </div>
+</section>
 
 <% if (typeof errors !=='undefined' && errors.length> 0) { %>
     <div class="alert alert-error">
@@ -41,8 +47,27 @@
                     value="<%= member.current_location || '' %>">
             </div>
 
+            <% if (!isSelfMember) { %>
+                <div class="relationship-box">
+                    <h3>Relationship</h3>
+                    <p class="help-text">Update how this person is connected to you.</p>
+
+                    <div class="form-group">
+                        <label for="relationship_type">This person is my *</label>
+                        <select id="relationship_type" name="relationship_type" required>
+                            <option value="">-- Choose relationship --</option>
+                            <% relationshipTypes.forEach(type=> { %>
+                                <option value="<%= type.value %>" <% if (relationshipToSelf==type.value) { %>selected<% } %>>
+                                    <%= type.label %>
+                                </option>
+                            <% }); %>
+                        </select>
+                    </div>
+                </div>
+            <% } %>
+
             <div class="form-actions">
-                <button type="submit" class="btn btn-primary">✓ Update Member</button>
-                <a href="/members/<%= member.id %>" class="btn btn-secondary">✕ Cancel</a>
+                <button type="submit" class="btn btn-primary">Update Member</button>
+                <a href="/members/<%= member.id %>" class="btn btn-secondary">Cancel</a>
             </div>
         </form>

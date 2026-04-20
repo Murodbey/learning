@@ -11,12 +11,12 @@
 <body>
     <nav class="navbar">
         <div class="navbar-container">
-            <a href="/" class="navbar-brand">🌳 Family Tree</a>
+            <a href="/" class="navbar-brand"><span class="brand-mark">FT</span> Family Tree</a>
             <ul class="navbar-menu">
                 <% if (currentUser) { %>
                     <li><a href="/">Home</a></li>
                     <li><a href="/members">All Members</a></li>
-                    <li><a href="/members/add">Add Member</a></li>
+                    <li><a href="/members/add">Add Relative</a></li>
                     <li><a href="/relationships/add">Add Relationship</a></li>
                     <li>
                         <form method="POST" action="/logout" class="nav-form">
@@ -33,11 +33,11 @@
 
     <div class="container">
         <% if (typeof message !=='undefined' && message) { %>
-            <div class="alert alert-success">✓ <%= message %>
+            <div class="alert alert-success"><%= message %>
             </div>
             <% } %>
                 <% if (typeof error !=='undefined' && error) { %>
-                    <div class="alert alert-error">✗ <%= error %>
+                    <div class="alert alert-error"><%= error %>
                     </div>
                     <% } %>
 

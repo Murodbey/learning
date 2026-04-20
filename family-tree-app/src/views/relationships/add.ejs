@@ -1,4 +1,10 @@
-<h1>Add Family Relationship</h1>
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Connection</p>
+        <h1>Add Relationship</h1>
+        <p>Connect two people already in your tree.</p>
+    </div>
+</section>
 
 <% if (typeof errors !=='undefined' && errors.length> 0) { %>
     <div class="alert alert-error">
@@ -15,7 +21,7 @@
 
         <% if (members.length < 2) { %>
             <div class="alert alert-warning">
-                ⚠️ You need at least 2 family members to create a relationship. <a href="/members/add">Add a member
+                You need at least 2 family members to create a relationship. <a href="/members/add">Add a member
                     first</a>.
             </div>
             <% } else { %>
@@ -38,14 +44,11 @@
                         <label for="relationship_type">Is this relationship *</label>
                         <select id="relationship_type" name="relationship_type" required>
                             <option value="">-- Select a relationship --</option>
-                            <option value="parent" <% if (data.relationship_type=='parent' ) { %>selected<% } %>>Parent
-                            </option>
-                            <option value="child" <% if (data.relationship_type=='child' ) { %>selected<% } %>>Child
-                            </option>
-                            <option value="spouse" <% if (data.relationship_type=='spouse' ) { %>selected<% } %>>Spouse
-                            </option>
-                            <option value="sibling" <% if (data.relationship_type=='sibling' ) { %>selected<% } %>
-                                    >Sibling</option>
+                            <% relationshipTypes.forEach(type=> { %>
+                                <option value="<%= type.value %>" <% if (data.relationship_type==type.value) { %>selected<% } %>>
+                                    <%= type.label %>
+                                </option>
+                            <% }); %>
                         </select>
                     </div>
 
@@ -64,8 +67,8 @@
                     </div>
 
                     <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">✓ Add Relationship</button>
-                        <a href="/members" class="btn btn-secondary">✕ Cancel</a>
+                        <button type="submit" class="btn btn-primary">Add Relationship</button>
+                        <a href="/members" class="btn btn-secondary">Cancel</a>
                     </div>
                 </form>
                 <% } %>
