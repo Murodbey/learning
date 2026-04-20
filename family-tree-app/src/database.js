@@ -26,6 +26,7 @@ const initializeDatabase = () => {
         name TEXT NOT NULL,
         email TEXT NOT NULL UNIQUE,
         password_hash TEXT NOT NULL,
+        self_member_id INTEGER,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `, (err) => {
@@ -81,6 +82,7 @@ const initializeDatabase = () => {
 
         addColumnIfMissing('family_members', 'user_id', 'INTEGER REFERENCES users(id) ON DELETE CASCADE');
         addColumnIfMissing('relationships', 'user_id', 'INTEGER REFERENCES users(id) ON DELETE CASCADE');
+        addColumnIfMissing('users', 'self_member_id', 'INTEGER');
     });
 };
 

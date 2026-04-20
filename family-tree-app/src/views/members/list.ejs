@@ -15,10 +15,15 @@
         <tbody>
             <% members.forEach(member=> { %>
                 <tr>
-                    <td><strong>
+                    <td>
+                        <strong>
                             <%= member.first_name %>
                                 <%= member.last_name %>
-                        </strong></td>
+                        </strong>
+                        <% if (currentUser.self_member_id==member.id) { %>
+                            <span class="badge">Me</span>
+                        <% } %>
+                    </td>
                     <td>
                         <%= member.date_of_birth || '-' %>
                     </td>

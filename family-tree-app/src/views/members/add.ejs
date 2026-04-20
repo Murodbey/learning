@@ -1,48 +1,62 @@
 <h1>Add New Family Member</h1>
 
-<% if (typeof errors !=='undefined' && errors.length> 0) { %>
-    <div class="alert alert-error">
-        <strong>Please fix the following errors:</strong>
-        <ul>
-            <% errors.forEach(error=> { %>
-                <li>
-                    <%= error %>
-                </li>
-                <% }); %>
-        </ul>
+<form method="POST" class="form">
+    <div class="form-group">
+        <label for="first_name">First Name *</label>
+        <input type="text" id="first_name" name="first_name" value="<%= data.first_name || '' %>" required>
     </div>
-    <% } %>
 
-        <form method="POST" class="form">
+    <div class="form-group">
+        <label for="last_name">Last Name *</label>
+        <input type="text" id="last_name" name="last_name" value="<%= data.last_name || '' %>" required>
+    </div>
+
+    <div class="form-group">
+        <label for="date_of_birth">Date of Birth</label>
+        <input type="date" id="date_of_birth" name="date_of_birth" value="<%= data.date_of_birth || '' %>">
+    </div>
+
+    <div class="form-group">
+        <label for="location_of_birth">Location of Birth</label>
+        <input type="text" id="location_of_birth" name="location_of_birth"
+            value="<%= data.location_of_birth || '' %>">
+    </div>
+
+    <div class="form-group">
+        <label for="current_location">Current Location</label>
+        <input type="text" id="current_location" name="current_location"
+            value="<%= data.current_location || '' %>">
+    </div>
+
+    <div class="relationship-box">
+        <h3>Relationship</h3>
+        <% if (!selfMember) { %>
+            <label class="checkbox-field">
+                <input type="checkbox" name="is_self" value="1" <% if (data.is_self) { %>checked<% } %>>
+                This person is me
+            </label>
+            <p class="help-text">Set yourself once, then future relatives can be added as your parent, child, spouse, or sibling.</p>
+        <% } else { %>
+            <p class="help-text">Tell the tree how this new person is connected.</p>
+
             <div class="form-group">
-                <label for="first_name">First Name *</label>
-                <input type="text" id="first_name" name="first_name" value="<%= data.first_name || '' %>" required>
+                <label for="relationship_type">This new person is my</label>
+                <select id="relationship_type" name="relationship_type">
+                    <option value="">-- Choose relationship --</option>
+                    <option value="parent" <% if (data.relationship_type=='parent' ) { %>selected<% } %>>Parent</option>
+                    <option value="child" <% if (data.relationship_type=='child' ) { %>selected<% } %>>Child</option>
+                    <option value="spouse" <% if (data.relationship_type=='spouse' ) { %>selected<% } %>>Spouse</option>
+                    <option value="sibling" <% if (data.relationship_type=='sibling' ) { %>selected<% } %>>Sibling</option>
+                </select>
             </div>
 
-            <div class="form-group">
-                <label for="last_name">Last Name *</label>
-                <input type="text" id="last_name" name="last_name" value="<%= data.last_name || '' %>" required>
-            </div>
+            <input type="hidden" name="related_member_id" value="<%= selfMember.id %>">
+            <p class="help-text">Connected to <strong><%= selfMember.first_name %> <%= selfMember.last_name %></strong>.</p>
+        <% } %>
+    </div>
 
-            <div class="form-group">
-                <label for="date_of_birth">Date of Birth</label>
-                <input type="date" id="date_of_birth" name="date_of_birth" value="<%= data.date_of_birth || '' %>">
-            </div>
-
-            <div class="form-group">
-                <label for="location_of_birth">Location of Birth</label>
-                <input type="text" id="location_of_birth" name="location_of_birth"
-                    value="<%= data.location_of_birth || '' %>">
-            </div>
-
-            <div class="form-group">
-                <label for="current_location">Current Location</label>
-                <input type="text" id="current_location" name="current_location"
-                    value="<%= data.current_location || '' %>">
-            </div>
-
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">✓ Add Member</button>
-                <a href="/members" class="btn btn-secondary">✕ Cancel</a>
-            </div>
-        </form>
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">✓ Add Member</button>
+        <a href="/members" class="btn btn-secondary">✕ Cancel</a>
+    </div>
+</form>

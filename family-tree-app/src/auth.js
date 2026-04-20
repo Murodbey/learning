@@ -76,7 +76,7 @@ const attachCurrentUser = async (req, res, next) => {
     res.locals.currentUser = null;
 
     if (session) {
-        req.currentUser = await db.get('SELECT id, name, email FROM users WHERE id = ?', [session.userId]);
+        req.currentUser = await db.get('SELECT id, name, email, self_member_id FROM users WHERE id = ?', [session.userId]);
         res.locals.currentUser = req.currentUser;
     }
 
