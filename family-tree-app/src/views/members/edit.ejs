@@ -1,0 +1,48 @@
+<h1>Edit Family Member</h1>
+
+<% if (typeof errors !=='undefined' && errors.length> 0) { %>
+    <div class="alert alert-error">
+        <strong>Please fix the following errors:</strong>
+        <ul>
+            <% errors.forEach(error=> { %>
+                <li>
+                    <%= error %>
+                </li>
+                <% }); %>
+        </ul>
+    </div>
+    <% } %>
+
+        <form method="POST" class="form">
+            <div class="form-group">
+                <label for="first_name">First Name *</label>
+                <input type="text" id="first_name" name="first_name" value="<%= member.first_name %>" required>
+            </div>
+
+            <div class="form-group">
+                <label for="last_name">Last Name *</label>
+                <input type="text" id="last_name" name="last_name" value="<%= member.last_name %>" required>
+            </div>
+
+            <div class="form-group">
+                <label for="date_of_birth">Date of Birth</label>
+                <input type="date" id="date_of_birth" name="date_of_birth" value="<%= member.date_of_birth || '' %>">
+            </div>
+
+            <div class="form-group">
+                <label for="location_of_birth">Location of Birth</label>
+                <input type="text" id="location_of_birth" name="location_of_birth"
+                    value="<%= member.location_of_birth || '' %>">
+            </div>
+
+            <div class="form-group">
+                <label for="current_location">Current Location</label>
+                <input type="text" id="current_location" name="current_location"
+                    value="<%= member.current_location || '' %>">
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">✓ Update Member</button>
+                <a href="/members/<%= member.id %>" class="btn btn-secondary">✕ Cancel</a>
+            </div>
+        </form>

@@ -1,0 +1,38 @@
+<h1>All Family Members</h1>
+
+<a href="/members/add" class="btn btn-primary">➕ Add New Member</a>
+
+<% if (members && members.length> 0) { %>
+    <table class="members-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Date of Birth</th>
+                <th>Current Location</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% members.forEach(member=> { %>
+                <tr>
+                    <td><strong>
+                            <%= member.first_name %>
+                                <%= member.last_name %>
+                        </strong></td>
+                    <td>
+                        <%= member.date_of_birth || '-' %>
+                    </td>
+                    <td>
+                        <%= member.current_location || '-' %>
+                    </td>
+                    <td class="actions">
+                        <a href="/members/<%= member.id %>" class="btn btn-small btn-info">👁️ View</a>
+                        <a href="/members/<%= member.id %>/edit" class="btn btn-small btn-warning">✏️ Edit</a>
+                    </td>
+                </tr>
+                <% }); %>
+        </tbody>
+    </table>
+    <% } else { %>
+        <p class="empty-message">No family members yet. <a href="/members/add">Add one now</a>!</p>
+        <% } %>

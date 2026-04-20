@@ -1,0 +1,71 @@
+<h1>Add Family Relationship</h1>
+
+<% if (typeof errors !=='undefined' && errors.length> 0) { %>
+    <div class="alert alert-error">
+        <strong>Please fix the following errors:</strong>
+        <ul>
+            <% errors.forEach(error=> { %>
+                <li>
+                    <%= error %>
+                </li>
+                <% }); %>
+        </ul>
+    </div>
+    <% } %>
+
+        <% if (members.length < 2) { %>
+            <div class="alert alert-warning">
+                ⚠️ You need at least 2 family members to create a relationship. <a href="/members/add">Add a member
+                    first</a>.
+            </div>
+            <% } else { %>
+                <form method="POST" class="form">
+                    <div class="form-group">
+                        <label for="member_id_1">First Family Member *</label>
+                        <select id="member_id_1" name="member_id_1" required>
+                            <option value="">-- Select a member --</option>
+                            <% members.forEach(member=> { %>
+                                <option value="<%= member.id %>" <% if (data.member_id_1==member.id) { %>selected<% } %>
+                                        >
+                                        <%= member.first_name %>
+                                            <%= member.last_name %>
+                                </option>
+                                <% }); %>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="relationship_type">Relationship Type *</label>
+                        <select id="relationship_type" name="relationship_type" required>
+                            <option value="">-- Select a relationship --</option>
+                            <option value="parent" <% if (data.relationship_type=='parent' ) { %>selected<% } %>>Parent
+                            </option>
+                            <option value="child" <% if (data.relationship_type=='child' ) { %>selected<% } %>>Child
+                            </option>
+                            <option value="spouse" <% if (data.relationship_type=='spouse' ) { %>selected<% } %>>Spouse
+                            </option>
+                            <option value="sibling" <% if (data.relationship_type=='sibling' ) { %>selected<% } %>
+                                    >Sibling</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="member_id_2">Second Family Member *</label>
+                        <select id="member_id_2" name="member_id_2" required>
+                            <option value="">-- Select a member --</option>
+                            <% members.forEach(member=> { %>
+                                <option value="<%= member.id %>" <% if (data.member_id_2==member.id) { %>selected<% } %>
+                                        >
+                                        <%= member.first_name %>
+                                            <%= member.last_name %>
+                                </option>
+                                <% }); %>
+                        </select>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">✓ Add Relationship</button>
+                        <a href="/members" class="btn btn-secondary">✕ Cancel</a>
+                    </div>
+                </form>
+                <% } %>
