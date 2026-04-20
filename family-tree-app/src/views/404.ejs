@@ -1,0 +1,9 @@
+<section class="empty-page">
+    <h1><%= message || 'Page not found' %></h1>
+    <p>The page you are looking for is not available.</p>
+    <% if (currentUser) { %>
+        <a href="/" class="btn btn-primary">Back to Home</a>
+    <% } else { %>
+        <a href="/login" class="btn btn-primary">Back to Login</a>
+    <% } %>
+</section>

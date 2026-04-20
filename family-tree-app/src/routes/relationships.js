@@ -2,45 +2,91 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 
-// Route to add a new relationship
-router.post('/add', async (req, res) => {
-    const { member1_id, member2_id, relationship_type } = req.body;
+const relationshipTypes = ['parent', 'child', 'spouse', 'sibling'];
 
-    // Server-side validation
-    if (!member1_id || !member2_id || !relationship_type) {
-        return res.status(400).render('relationships/add', {
-            error: 'All fields are required.',
-            member1_id,
-            member2_id,
-            relationship_type
+const renderAddRelationship = async (req, res, options = {}) => {
+    const members = await db.all(
+        'SELECT id, first_name, last_name FROM family_members WHERE user_id = ? ORDER BY last_name, first_name',
+        [req.currentUser.id]
+    );
+
+    res.status(options.status || 200).render('relationships/add', {
+        members,
+        data: options.data || {},
+        error: options.error || null
+    });
+};
+
+router.get('/add', async (req, res) => {
+    await renderAddRelationship(req, res);
+});
+
+router.post('/add', async (req, res) => {
+    const { member_id_1, member_id_2, relationship_type } = req.body;
+    const data = { member_id_1, member_id_2, relationship_type };
+
+    if (!member_id_1 || !member_id_2 || !relationship_type) {
+        return await renderAddRelationship(req, res, {
+            status: 400,
+            data,
+            error: 'All fields are required.'
+        });
+    }
+
+    if (member_id_1 === member_id_2) {
+        return await renderAddRelationship(req, res, {
+            status: 400,
+            data,
+            error: 'Choose two different family members.'
+        });
+    }
+
+    if (!relationshipTypes.includes(relationship_type)) {
+        return await renderAddRelationship(req, res, {
+            status: 400,
+            data,
+            error: 'Choose a valid relationship type.'
+        });
+    }
+
+    const selectedMembers = await db.all(
+        `SELECT id FROM family_members
+        WHERE user_id = ? AND id IN (?, ?)`,
+        [req.currentUser.id, member_id_1, member_id_2]
+    );
+
+    if (selectedMembers.length !== 2) {
+        return await renderAddRelationship(req, res, {
+            status: 400,
+            data,
+            error: 'Both family members must belong to your account.'
         });
     }
 
     try {
-        // Insert relationship into the database
-        await db.run('INSERT INTO relationships (member1_id, member2_id, relationship_type) VALUES (?, ?, ?)', [member1_id, member2_id, relationship_type]);
-        res.redirect('/members'); // Redirect to members list after adding
+        await db.run(
+            `INSERT INTO relationships (user_id, member_id_1, member_id_2, relationship_type)
+            VALUES (?, ?, ?, ?)`,
+            [req.currentUser.id, member_id_1, member_id_2, relationship_type]
+        );
+        res.redirect(`/members/${member_id_1}`);
     } catch (error) {
-        console.error(error);
-        res.status(500).render('relationships/add', {
-            error: 'An error occurred while adding the relationship.'
+        const isDuplicate = error.message && error.message.includes('UNIQUE');
+        await renderAddRelationship(req, res, {
+            status: 400,
+            data,
+            error: isDuplicate ? 'That relationship already exists.' : 'An error occurred while adding the relationship.'
         });
     }
 });
 
-// Route to view relationships for a specific family member
-router.get('/:id', async (req, res) => {
-    const memberId = req.params.id;
+router.post('/:id/delete', async (req, res) => {
+    await db.run(
+        'DELETE FROM relationships WHERE id = ? AND user_id = ?',
+        [req.params.id, req.currentUser.id]
+    );
 
-    try {
-        const member = await db.get('SELECT * FROM family_members WHERE id = ?', [memberId]);
-        const relationships = await db.all('SELECT * FROM relationships WHERE member1_id = ? OR member2_id = ?', [memberId, memberId]);
-
-        res.render('members/detail', { member, relationships });
-    } catch (error) {
-        console.error(error);
-        res.status(500).send('An error occurred while retrieving relationships.');
-    }
+    res.redirect(req.body.referrer || '/members');
 });
 
 module.exports = router;

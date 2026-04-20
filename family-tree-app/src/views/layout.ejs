@@ -13,10 +13,20 @@
         <div class="navbar-container">
             <a href="/" class="navbar-brand">🌳 Family Tree</a>
             <ul class="navbar-menu">
-                <li><a href="/">Home</a></li>
-                <li><a href="/members">All Members</a></li>
-                <li><a href="/members/add">Add Member</a></li>
-                <li><a href="/relationships/add">Add Relationship</a></li>
+                <% if (currentUser) { %>
+                    <li><a href="/">Home</a></li>
+                    <li><a href="/members">All Members</a></li>
+                    <li><a href="/members/add">Add Member</a></li>
+                    <li><a href="/relationships/add">Add Relationship</a></li>
+                    <li>
+                        <form method="POST" action="/logout" class="nav-form">
+                            <button type="submit">Logout</button>
+                        </form>
+                    </li>
+                <% } else { %>
+                    <li><a href="/login">Login</a></li>
+                    <li><a href="/signup" class="nav-pill">Sign up</a></li>
+                <% } %>
             </ul>
         </div>
     </nav>

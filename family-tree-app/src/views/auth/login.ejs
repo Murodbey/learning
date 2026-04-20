@@ -1,0 +1,31 @@
+<section class="auth-shell">
+    <div class="auth-panel">
+        <p class="eyebrow">Private family space</p>
+        <h1>Welcome back</h1>
+        <p>Sign in to continue building your family tree.</p>
+
+        <form method="POST" class="auth-form">
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" value="<%= data.email || '' %>" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary auth-submit">Login</button>
+        </form>
+
+        <p class="auth-switch">New here? <a href="/signup">Create an account</a></p>
+    </div>
+
+    <div class="auth-story">
+        <div>
+            <p class="eyebrow">Your roots, your account</p>
+            <h2>Keep names, places, and relationships together.</h2>
+            <p>Only you can see the family members you add after logging in.</p>
+        </div>
+    </div>
+</section>
