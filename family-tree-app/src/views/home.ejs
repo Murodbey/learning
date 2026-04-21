@@ -1,73 +1,86 @@
-<% const hasBranches = (branches) => branches && branches.length > 0; %>
-<% const totalBranches = tree.grandparents.length + tree.parents.length + tree.siblings.length + tree.children.length + tree.auntUncles.length; %>
+<%
+const hasBranches = (branches) => Array.isArray(branches) && branches.length > 0;
+const upperBranches = [...tree.parents, ...tree.auntUncles];
+const totalBranches = tree.grandparents.length + upperBranches.length + tree.siblings.length + tree.children.length + (tree.self ? 1 : 0);
+const splitIndex = Math.ceil(tree.siblings.length / 2);
+const leftSiblings = tree.siblings.slice(0, splitIndex);
+const rightSiblings = tree.siblings.slice(splitIndex);
 
-<% const renderPersonCard = (person, extraClass = '') => { %>
-    <a href="/members/<%= person.id %>" class="tree-person <%= extraClass %>">
-        <span class="person-name"><%= person.first_name %> <%= person.last_name %></span>
-        <% if (person.relationshipLabel) { %>
-            <span class="person-role"><%= person.relationshipLabel %></span>
-        <% } %>
+const initialsFor = (person) => {
+    const first = (person.first_name || '').trim().charAt(0);
+    const last = (person.last_name || '').trim().charAt(0);
+    return `${first}${last}`.toUpperCase() || '?';
+};
+
+const renderPersonCard = (person, options = {}) => {
+    const role = options.overrideRole || person.relationshipLabel || '';
+%>
+    <a href="/members/<%= person.id %>" class="tree-person <%= options.focus ? 'is-focus' : '' %> <%= options.compact ? 'is-compact' : '' %>">
+        <span class="tree-person-avatar"><%= initialsFor(person) %></span>
+        <span class="tree-person-caption">
+            <span class="person-name"><%= person.first_name %> <%= person.last_name %></span>
+            <% if (role) { %>
+                <span class="person-role"><%= role %></span>
+            <% } %>
+        </span>
         <% if (person.current_location) { %>
             <span class="person-location"><%= person.current_location %></span>
         <% } %>
     </a>
-<% }; %>
+<%
+};
 
-<% const renderBranch = (branch) => { %>
-    <article class="branch-card">
-        <div class="branch-top">
-            <% renderPersonCard(branch.primary); %>
+const renderBranch = (branch, options = {}) => {
+    if (!branch || !branch.primary) {
+        return;
+    }
 
+    const showChildren = options.showChildren !== false && branch.children && branch.children.length > 0;
+%>
+    <article class="tree-branch <%= options.focus ? 'is-focus-branch' : '' %>">
+        <div class="tree-branch-partners <%= branch.spouses && branch.spouses.length ? 'is-couple' : '' %>">
+            <% renderPersonCard(branch.primary, { focus: options.focus, overrideRole: options.focus ? 'You' : '' }); %>
             <% if (branch.spouses && branch.spouses.length > 0) { %>
-                <div class="branch-spouses">
-                    <% branch.spouses.forEach(spouse=> { %>
-                        <% renderPersonCard(spouse, 'is-compact'); %>
-                    <% }); %>
-                </div>
+                <% branch.spouses.forEach((spouse) => { %>
+                    <% renderPersonCard(spouse, { focus: options.focus }); %>
+                <% }); %>
             <% } %>
         </div>
 
-        <% if (branch.children && branch.children.length > 0) { %>
-            <div class="branch-arrow"></div>
-            <div class="branch-children">
-                <% branch.children.forEach(child=> { %>
-                    <% renderPersonCard(child, 'is-compact'); %>
+        <% if (showChildren) { %>
+            <div class="tree-branch-drop"></div>
+            <div class="tree-branch-children">
+                <% branch.children.forEach((child) => { %>
+                    <% renderPersonCard(child, { compact: true }); %>
                 <% }); %>
             </div>
         <% } %>
     </article>
-<% }; %>
+<%
+};
+%>
 
-<% const renderBranchSection = (title, branches) => { %>
-    <% if (hasBranches(branches)) { %>
-        <section class="tree-section">
-            <div class="tree-section-head">
-                <h3><%= title %></h3>
-            </div>
-            <div class="branch-grid">
-                <% branches.forEach(branch=> { %>
-                    <% renderBranch(branch); %>
-                <% }); %>
-            </div>
-        </section>
-    <% } %>
-<% }; %>
-
-<section class="tree-hero">
+<section class="tree-hero poster-hero">
     <div>
         <p class="eyebrow">Welcome, <%= currentUser.name %></p>
-        <h1>Your Family Tree</h1>
-        <p>Partners stay beside the person they belong with, and children stay under their branch.</p>
+        <h1>Your family, through the generations</h1>
+        <p>A centered family chart with couples together, siblings beside you, and descendants flowing downward.</p>
     </div>
     <a href="/members/add" class="btn btn-primary">Add Relative</a>
 </section>
 
 <% if (selfMember) { %>
-    <section class="family-tree">
+    <section class="family-tree-poster">
+        <div class="poster-tree-art" aria-hidden="true">
+            <span class="tree-canopy"></span>
+            <span class="tree-trunk"></span>
+            <span class="tree-roots"></span>
+        </div>
+
         <% if (totalBranches === 0) { %>
             <section class="tree-start">
                 <section class="tree-self">
-                    <span class="person-role">Me</span>
+                    <span class="person-role">You</span>
                     <h2><%= selfMember.first_name %> <%= selfMember.last_name %></h2>
                     <% if (selfMember.current_location) { %>
                         <p class="tree-self-location"><%= selfMember.current_location %></p>
@@ -75,39 +88,85 @@
                     <a href="/members/<%= selfMember.id %>" class="tree-self-link">View profile</a>
                 </section>
                 <div>
-                    <h2>Start with your first relative</h2>
-                    <p>Add someone anywhere in the family, then keep branching outward from that person.</p>
+                    <h2>Start growing your tree</h2>
+                    <p>Add parents, siblings, children, spouses, aunts, uncles, and cousins as they belong.</p>
                     <a href="/members/add" class="btn btn-primary">Add Relative</a>
                 </div>
             </section>
         <% } else { %>
-            <% renderBranchSection('Grandparents', tree.grandparents); %>
-            <% renderBranchSection('Parents', tree.parents); %>
+            <% if (hasBranches(tree.grandparents)) { %>
+                <section class="poster-row">
+                    <div class="poster-branch-list is-top-row">
+                        <% tree.grandparents.forEach((branch) => { %>
+                            <% renderBranch(branch, { showChildren: false }); %>
+                        <% }); %>
+                    </div>
+                </section>
+            <% } %>
 
-            <section class="tree-self-stage">
-                <div class="tree-self-wrap">
-                    <section class="tree-self">
-                        <span class="person-role">Me</span>
-                        <h2><%= selfMember.first_name %> <%= selfMember.last_name %></h2>
-                        <% if (selfMember.current_location) { %>
-                            <p class="tree-self-location"><%= selfMember.current_location %></p>
-                        <% } %>
-                        <a href="/members/<%= selfMember.id %>" class="tree-self-link">View profile</a>
-                    </section>
+            <% if (hasBranches(upperBranches)) { %>
+                <% if (hasBranches(tree.grandparents)) { %>
+                    <div class="poster-link"></div>
+                <% } %>
+                <section class="poster-row">
+                    <div class="poster-branch-list is-connected-row">
+                        <% upperBranches.forEach((branch) => { %>
+                            <% renderBranch(branch); %>
+                        <% }); %>
+                    </div>
+                </section>
+            <% } %>
 
-                    <% if (tree.self && tree.self.spouses && tree.self.spouses.length > 0) { %>
-                        <div class="tree-self-spouses">
-                            <% tree.self.spouses.forEach(spouse=> { %>
-                                <% renderPersonCard(spouse, 'is-compact'); %>
-                            <% }); %>
+            <% if (tree.self || hasBranches(tree.siblings)) { %>
+                <% if (hasBranches(tree.grandparents) || hasBranches(upperBranches)) { %>
+                    <div class="poster-link"></div>
+                <% } %>
+                <section class="poster-row poster-row-focus">
+                    <div class="poster-focus-grid">
+                        <div class="poster-focus-side left">
+                            <% if (hasBranches(leftSiblings)) { %>
+                                <div class="poster-branch-list is-connected-row is-side-row">
+                                    <% leftSiblings.forEach((branch) => { %>
+                                        <% renderBranch(branch); %>
+                                    <% }); %>
+                                </div>
+                            <% } %>
                         </div>
-                    <% } %>
-                </div>
-            </section>
 
-            <% renderBranchSection('Siblings', tree.siblings); %>
-            <% renderBranchSection('Children', tree.children); %>
-            <% renderBranchSection('Aunts / Uncles', tree.auntUncles); %>
+                        <div class="poster-focus-center">
+                            <% if (tree.self) { %>
+                                <% renderBranch(tree.self, { focus: true, showChildren: false }); %>
+                            <% } %>
+                        </div>
+
+                        <div class="poster-focus-side right">
+                            <% if (hasBranches(rightSiblings)) { %>
+                                <div class="poster-branch-list is-connected-row is-side-row">
+                                    <% rightSiblings.forEach((branch) => { %>
+                                        <% renderBranch(branch); %>
+                                    <% }); %>
+                                </div>
+                            <% } %>
+                        </div>
+                    </div>
+                </section>
+            <% } %>
+
+            <% if (hasBranches(tree.children)) { %>
+                <div class="poster-link"></div>
+                <section class="poster-row">
+                    <div class="poster-branch-list is-connected-row">
+                        <% tree.children.forEach((branch) => { %>
+                            <% renderBranch(branch); %>
+                        <% }); %>
+                    </div>
+                </section>
+            <% } %>
+
+            <div class="poster-title">
+                <h2>Our Family Tree</h2>
+                <p>Through the generations</p>
+            </div>
         <% } %>
     </section>
 <% } else { %>

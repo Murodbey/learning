@@ -98,23 +98,22 @@ const buildBranch = ({
     relationType,
     selfMemberId,
     membersById,
-    adjacency
+    adjacency,
+    spouseIds = [],
+    spouseDisplayType = 'spouse'
 }) => {
     const member = membersById.get(Number(memberId));
     if (!member) {
         return null;
     }
 
-    const spouses = getNeighborIdsByType(adjacency, memberId, 'spouse')
+    const spouses = (spouseIds.length > 0 ? spouseIds : getNeighborIdsByType(adjacency, memberId, 'spouse'))
         .filter((id) => Number(id) !== Number(selfMemberId))
-        .map((id) => createPersonCard(membersById.get(id), 'spouse'));
+        .map((id) => createPersonCard(membersById.get(id), spouseDisplayType));
 
     let childLabelType = '';
-    let overrideChildLabel = '';
 
-    if (relationType === 'parent') {
-        childLabelType = 'sibling';
-    } else if (relationType === 'sibling') {
+    if (relationType === 'sibling') {
         childLabelType = 'niece_nephew';
     } else if (relationType === 'child') {
         childLabelType = 'grandchild';
@@ -124,27 +123,68 @@ const buildBranch = ({
         childLabelType = 'child';
     }
 
-    const children = getNeighborIdsByType(adjacency, memberId, 'child')
+    const children = childLabelType ? getNeighborIdsByType(adjacency, memberId, 'child')
         .map((id) => {
             const childMember = membersById.get(id);
             if (!childMember) {
                 return null;
             }
 
-            if (relationType === 'parent' && Number(id) === Number(selfMemberId)) {
-                overrideChildLabel = 'Me';
-                return createPersonCard(childMember, '', overrideChildLabel);
-            }
-
             return createPersonCard(childMember, childLabelType);
         })
-        .filter(Boolean);
+        .filter(Boolean) : [];
 
     return {
         primary: createPersonCard(member, relationType),
         spouses,
         children
     };
+};
+
+const buildSectionBranches = ({
+    memberIds,
+    relationType,
+    selfMemberId,
+    membersById,
+    adjacency
+}) => {
+    const seen = new Set();
+    const branches = [];
+    const spouseDisplayType = ['parent', 'grandparent', 'aunt_uncle'].includes(relationType)
+        ? relationType
+        : 'spouse';
+
+    memberIds.forEach((memberId) => {
+        const normalizedId = Number(memberId);
+        if (seen.has(normalizedId)) {
+            return;
+        }
+
+        const spouseIds = getNeighborIdsByType(adjacency, normalizedId, 'spouse')
+            .filter((spouseId) => memberIds.includes(Number(spouseId)));
+
+        spouseIds.forEach((spouseId) => seen.add(Number(spouseId)));
+        seen.add(normalizedId);
+
+        const primaryId = normalizedId;
+        const otherSpouseIds = spouseIds.filter((spouseId) => Number(spouseId) !== primaryId);
+
+        const branch = buildBranch({
+            memberId: primaryId,
+            relationType,
+            selfMemberId,
+            membersById,
+            adjacency,
+            spouseIds: otherSpouseIds,
+            spouseDisplayType
+        });
+
+        if (branch) {
+            branches.push(branch);
+        }
+    });
+
+    return branches;
 };
 
 const getTreeForUser = async (user) => {
@@ -186,14 +226,6 @@ const getTreeForUser = async (user) => {
 
     const auntUncleIds = uniqueIds([...directIdsByType.aunt_uncle, ...inferredAuntUncles]);
 
-    const branchFactory = (relationType) => (memberId) => buildBranch({
-        memberId,
-        relationType,
-        selfMemberId: selfMember.id,
-        membersById,
-        adjacency
-    });
-
     return {
         selfMember,
         tree: {
@@ -204,11 +236,41 @@ const getTreeForUser = async (user) => {
                 membersById,
                 adjacency
             }),
-            grandparents: directIdsByType.grandparent.map(branchFactory('grandparent')).filter(Boolean),
-            parents: directIdsByType.parent.map(branchFactory('parent')).filter(Boolean),
-            siblings: directIdsByType.sibling.map(branchFactory('sibling')).filter(Boolean),
-            children: directIdsByType.child.map(branchFactory('child')).filter(Boolean),
-            auntUncles: auntUncleIds.map(branchFactory('aunt_uncle')).filter(Boolean)
+            grandparents: buildSectionBranches({
+                memberIds: directIdsByType.grandparent,
+                relationType: 'grandparent',
+                selfMemberId: selfMember.id,
+                membersById,
+                adjacency
+            }),
+            parents: buildSectionBranches({
+                memberIds: directIdsByType.parent,
+                relationType: 'parent',
+                selfMemberId: selfMember.id,
+                membersById,
+                adjacency
+            }),
+            siblings: buildSectionBranches({
+                memberIds: directIdsByType.sibling,
+                relationType: 'sibling',
+                selfMemberId: selfMember.id,
+                membersById,
+                adjacency
+            }),
+            children: buildSectionBranches({
+                memberIds: directIdsByType.child,
+                relationType: 'child',
+                selfMemberId: selfMember.id,
+                membersById,
+                adjacency
+            }),
+            auntUncles: buildSectionBranches({
+                memberIds: auntUncleIds,
+                relationType: 'aunt_uncle',
+                selfMemberId: selfMember.id,
+                membersById,
+                adjacency
+            })
         }
     };
 };
