@@ -27,6 +27,9 @@
         <p><strong>Date of Birth:</strong>
             <%= member.date_of_birth || 'Not provided' %>
         </p>
+        <p><strong>Gender:</strong>
+            <%= member.gender === 'female' ? 'Female' : member.gender === 'male' ? 'Male' : member.gender === 'nonbinary' ? 'Non-binary' : 'Not provided' %>
+        </p>
         <p><strong>Location of Birth:</strong>
             <%= member.location_of_birth || 'Not provided' %>
         </p>

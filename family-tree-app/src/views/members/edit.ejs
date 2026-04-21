@@ -31,8 +31,21 @@
             </div>
 
             <div class="form-group">
+                <label for="gender">Gender</label>
+                <select id="gender" name="gender">
+                    <% genderOptions.forEach(option=> { %>
+                        <option value="<%= option.value %>" <% if ((member.gender || '')==option.value) { %>selected<% } %>>
+                            <%= option.label %>
+                        </option>
+                    <% }); %>
+                </select>
+            </div>
+
+            <div class="form-group">
                 <label for="date_of_birth">Date of Birth</label>
-                <input type="date" id="date_of_birth" name="date_of_birth" value="<%= member.date_of_birth || '' %>">
+                <input type="text" id="date_of_birth" name="date_of_birth" value="<%= member.date_of_birth || '' %>"
+                    placeholder="YYYY-MM-DD" inputmode="numeric" maxlength="10">
+                <p class="help-text">Use the format YYYY-MM-DD.</p>
             </div>
 
             <div class="form-group">

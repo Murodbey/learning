@@ -18,6 +18,17 @@
     </div>
 
     <div class="form-group">
+        <label for="gender">Gender</label>
+        <select id="gender" name="gender">
+            <% genderOptions.forEach(option=> { %>
+                <option value="<%= option.value %>" <% if ((data.gender || '')==option.value) { %>selected<% } %>>
+                    <%= option.label %>
+                </option>
+            <% }); %>
+        </select>
+    </div>
+
+    <div class="form-group">
         <label for="date_of_birth">Date of Birth</label>
         <input type="date" id="date_of_birth" name="date_of_birth" value="<%= data.date_of_birth || '' %>">
     </div>
@@ -36,10 +47,22 @@
 
     <div class="relationship-box">
         <h3>Relationship</h3>
-        <p class="help-text">Tell the tree how this new person is connected to you.</p>
+        <p class="help-text">Choose the person already in your tree, then say how this new person is connected to them.</p>
 
         <div class="form-group">
-            <label for="relationship_type">This new person is my *</label>
+            <label for="related_member_id">Connected to *</label>
+            <select id="related_member_id" name="related_member_id" required>
+                <option value="">-- Choose person --</option>
+                <% members.forEach(member=> { %>
+                    <option value="<%= member.id %>" <% if (String(data.related_member_id || '')===String(member.id)) { %>selected<% } %>>
+                        <%= member.first_name %> <%= member.last_name %><% if (selfMember && selfMember.id===member.id) { %> (Me)<% } %>
+                    </option>
+                <% }); %>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="relationship_type">This new person is their *</label>
             <select id="relationship_type" name="relationship_type" required>
                 <option value="">-- Choose relationship --</option>
                 <% relationshipTypes.forEach(type=> { %>
@@ -50,12 +73,7 @@
             </select>
         </div>
 
-        <% if (selfMember) { %>
-            <input type="hidden" name="related_member_id" value="<%= selfMember.id %>">
-            <p class="help-text">Connected to <strong><%= selfMember.first_name %> <%= selfMember.last_name %></strong>.</p>
-        <% } else { %>
-            <p class="help-text">Your profile is created automatically when you sign up or log in.</p>
-        <% } %>
+        <p class="help-text">Examples: your parent's sibling, your sibling's spouse, your aunt's husband, your sibling's child.</p>
     </div>
 
     <div class="form-actions">

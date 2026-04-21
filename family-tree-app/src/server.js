@@ -29,12 +29,12 @@ app.use(attachCurrentUser);
 app.use(authRoutes);
 
 app.get('/', requireAuth, asyncHandler(async (req, res) => {
-    const { selfMember, treeGroups } = await getTreeForUser(req.currentUser);
+    const { selfMember, tree } = await getTreeForUser(req.currentUser);
 
     res.render('home', {
         layout: 'layout',
         selfMember,
-        treeGroups
+        tree
     });
 }));
 

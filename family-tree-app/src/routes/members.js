@@ -4,6 +4,7 @@ const db = require('../database');
 const asyncHandler = require('../asyncHandler');
 const {
     relationshipTypes,
+    genderOptions,
     relationshipTypeValues,
     inverseRelationship,
     relationshipLabel
@@ -30,13 +31,41 @@ const getSelfMember = async (req) => {
 
 const renderAddMember = async (req, res, options = {}) => {
     const selfMember = await getSelfMember(req);
+    const members = await getMembersForUser(req.currentUser.id);
+    const defaultRelatedMemberId = options.data && options.data.related_member_id !== undefined
+        ? options.data.related_member_id
+        : (selfMember ? String(selfMember.id) : '');
 
     res.status(options.status || 200).render('members/add', {
-        data: options.data || {},
+        data: {
+            ...options.data,
+            related_member_id: defaultRelatedMemberId
+        },
         error: options.error || null,
         selfMember,
-        relationshipTypes
+        members,
+        relationshipTypes,
+        genderOptions
     });
+};
+
+const normalizeDateOfBirth = (value) => {
+    const trimmed = (value || '').trim();
+    if (!trimmed) {
+        return '';
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        return null;
+    }
+
+    const [year, month, day] = trimmed.split('-').map(Number);
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    const isValid = parsed.getUTCFullYear() === year
+        && parsed.getUTCMonth() === month - 1
+        && parsed.getUTCDate() === day;
+
+    return isValid ? trimmed : null;
 };
 
 const getRelationshipToSelf = async (req, memberId) => {
@@ -89,6 +118,7 @@ const renderEditMember = async (req, res, options = {}) => {
         member,
         error: options.error || null,
         relationshipTypes,
+        genderOptions,
         relationshipToSelf: options.relationshipToSelf !== undefined
             ? options.relationshipToSelf
             : getRelationshipTypeToSelf(selfRelationship, member.id),
@@ -98,6 +128,11 @@ const renderEditMember = async (req, res, options = {}) => {
 
 const validateMemberFields = async (req, res, next) => {
     try {
+        const normalizedDateOfBirth = normalizeDateOfBirth(req.body.date_of_birth);
+        req.body.date_of_birth = normalizedDateOfBirth === null
+            ? (req.body.date_of_birth || '').trim()
+            : normalizedDateOfBirth;
+
         const { first_name, last_name } = req.body;
         if (!first_name || !last_name) {
             if (req.params.id) {
@@ -115,6 +150,24 @@ const validateMemberFields = async (req, res, next) => {
                 error: 'First name and last name are required.'
             });
         }
+
+        if (normalizedDateOfBirth === null) {
+            if (req.params.id) {
+                return await renderEditMember(req, res, {
+                    status: 400,
+                    error: 'Use the date format YYYY-MM-DD.',
+                    member: { id: req.params.id, ...req.body },
+                    relationshipToSelf: req.body.relationship_type || ''
+                });
+            }
+
+            return await renderAddMember(req, res, {
+                status: 400,
+                data: req.body,
+                error: 'Use the date format YYYY-MM-DD.'
+            });
+        }
+
         next();
     } catch (error) {
         next(error);
@@ -137,6 +190,7 @@ router.post('/add', validateMemberFields, asyncHandler(async (req, res) => {
     const {
         first_name,
         last_name,
+        gender,
         date_of_birth,
         location_of_birth,
         current_location,
@@ -156,7 +210,7 @@ router.post('/add', validateMemberFields, asyncHandler(async (req, res) => {
         return await renderAddMember(req, res, {
             status: 400,
             data: req.body,
-            error: 'Choose who this person is to you.'
+            error: 'Choose how this person is connected.'
         });
     }
 
@@ -177,15 +231,15 @@ router.post('/add', validateMemberFields, asyncHandler(async (req, res) => {
         return await renderAddMember(req, res, {
             status: 400,
             data: req.body,
-            error: 'Your profile was not found. Please refresh and try again.'
+            error: 'Choose a person from your existing tree.'
         });
     }
 
     const result = await db.run(
         `INSERT INTO family_members
-        (user_id, first_name, last_name, date_of_birth, location_of_birth, current_location)
-        VALUES (?, ?, ?, ?, ?, ?)`,
-        [req.currentUser.id, first_name, last_name, date_of_birth, location_of_birth, current_location]
+        (user_id, first_name, last_name, gender, date_of_birth, location_of_birth, current_location)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [req.currentUser.id, first_name, last_name, gender || null, date_of_birth, location_of_birth, current_location]
     );
 
     try {
@@ -223,7 +277,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 
         return {
             ...relationship,
-            display_label: relationshipLabel(displayType)
+            display_label: relationshipLabel(displayType, relationship.related_gender)
         };
     });
 
@@ -235,7 +289,7 @@ router.get('/:id/edit', asyncHandler(async (req, res) => {
 }));
 
 router.post('/:id/edit', validateMemberFields, asyncHandler(async (req, res) => {
-    const { first_name, last_name, date_of_birth, location_of_birth, current_location, relationship_type } = req.body;
+    const { first_name, last_name, gender, date_of_birth, location_of_birth, current_location, relationship_type } = req.body;
     const member = await db.get(
         'SELECT * FROM family_members WHERE id = ? AND user_id = ?',
         [req.params.id, req.currentUser.id]
@@ -267,10 +321,10 @@ router.post('/:id/edit', validateMemberFields, asyncHandler(async (req, res) => 
 
     await db.run(
         `UPDATE family_members
-        SET first_name = ?, last_name = ?, date_of_birth = ?, location_of_birth = ?,
+        SET first_name = ?, last_name = ?, gender = ?, date_of_birth = ?, location_of_birth = ?,
             current_location = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ? AND user_id = ?`,
-        [first_name, last_name, date_of_birth, location_of_birth, current_location, req.params.id, req.currentUser.id]
+        [first_name, last_name, gender || null, date_of_birth, location_of_birth, current_location, req.params.id, req.currentUser.id]
     );
 
     if (!isSelfMember) {

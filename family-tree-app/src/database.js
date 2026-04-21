@@ -115,6 +115,7 @@ const initializeDatabase = async () => {
         user_id INTEGER,
         first_name TEXT NOT NULL,
         last_name TEXT NOT NULL,
+        gender TEXT,
         date_of_birth TEXT,
         location_of_birth TEXT,
         current_location TEXT,
@@ -142,6 +143,7 @@ const initializeDatabase = async () => {
     console.log('relationships table ready');
 
     await addColumnIfMissing('family_members', 'user_id', 'INTEGER REFERENCES users(id) ON DELETE CASCADE');
+    await addColumnIfMissing('family_members', 'gender', 'TEXT');
     await addColumnIfMissing('relationships', 'user_id', 'INTEGER REFERENCES users(id) ON DELETE CASCADE');
     await addColumnIfMissing('users', 'self_member_id', 'INTEGER');
     await migrateRelationshipTypes();
