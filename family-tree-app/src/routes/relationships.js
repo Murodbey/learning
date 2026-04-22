@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const asyncHandler = require('../asyncHandler');
-const { relationshipTypes, relationshipTypeValues } = require('../relationshipTypes');
+const { relationshipTypes, relationshipTypeValues, canonicalizeRelationship } = require('../relationshipTypes');
 
 const renderAddRelationship = async (req, res, options = {}) => {
     const members = await db.all(
@@ -65,10 +65,16 @@ router.post('/add', asyncHandler(async (req, res) => {
     }
 
     try {
+        const canonical = canonicalizeRelationship(member_id_1, member_id_2, relationship_type);
         await db.run(
             `INSERT INTO relationships (user_id, member_id_1, member_id_2, relationship_type)
             VALUES (?, ?, ?, ?)`,
-            [req.currentUser.id, member_id_1, member_id_2, relationship_type]
+            [
+                req.currentUser.id,
+                canonical.member_id_1,
+                canonical.member_id_2,
+                canonical.relationship_type
+            ]
         );
         res.redirect(`/members/${member_id_1}`);
     } catch (error) {

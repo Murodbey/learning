@@ -37,6 +37,33 @@ const inverseRelationship = (relationshipType) => {
     return inverses[relationshipType] || relationshipType;
 };
 
+const canonicalizeRelationship = (memberId1, memberId2, relationshipType) => {
+    const firstId = Number(memberId1);
+    const secondId = Number(memberId2);
+
+    if (!Number.isInteger(firstId) || !Number.isInteger(secondId)) {
+        throw new Error('Relationship member IDs must be integers.');
+    }
+
+    if (firstId === secondId) {
+        throw new Error('A relationship requires two different family members.');
+    }
+
+    if (firstId < secondId) {
+        return {
+            member_id_1: firstId,
+            member_id_2: secondId,
+            relationship_type: relationshipType
+        };
+    }
+
+    return {
+        member_id_1: secondId,
+        member_id_2: firstId,
+        relationship_type: inverseRelationship(relationshipType)
+    };
+};
+
 const relationshipLabel = (relationshipType, gender = '') => {
     const genderedLabels = {
         parent: {
@@ -99,6 +126,7 @@ module.exports = {
     relationshipTypes,
     genderOptions,
     relationshipTypeValues,
+    canonicalizeRelationship,
     inverseRelationship,
     relationshipLabel
 };

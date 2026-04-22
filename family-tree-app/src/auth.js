@@ -1,9 +1,15 @@
+require('dotenv').config();
+
 const crypto = require('crypto');
 const db = require('./database');
 
 const COOKIE_NAME = 'family_tree_auth';
 const SESSION_DAYS = 7;
-const SECRET = process.env.SESSION_SECRET || 'change-this-secret-for-production';
+const SECRET = process.env.SESSION_SECRET;
+
+if (!SECRET) {
+    throw new Error('SESSION_SECRET is required. Add it to your environment or .env file.');
+}
 
 const hashPassword = (password) => {
     const salt = crypto.randomBytes(16).toString('hex');
@@ -150,6 +156,7 @@ const loginUser = (res, userId) => {
     res.cookie(COOKIE_NAME, token, {
         httpOnly: true,
         sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
         maxAge: SESSION_DAYS * 24 * 60 * 60 * 1000
     });
 };

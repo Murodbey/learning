@@ -6,6 +6,7 @@ const {
     relationshipTypes,
     genderOptions,
     relationshipTypeValues,
+    canonicalizeRelationship,
     inverseRelationship,
     relationshipLabel
 } = require('../relationshipTypes');
@@ -243,10 +244,16 @@ router.post('/add', validateMemberFields, asyncHandler(async (req, res) => {
     );
 
     try {
+        const canonical = canonicalizeRelationship(result.lastID, relatedMember.id, relationship_type);
         await db.run(
             `INSERT INTO relationships (user_id, member_id_1, member_id_2, relationship_type)
             VALUES (?, ?, ?, ?)`,
-            [req.currentUser.id, result.lastID, relatedMember.id, relationship_type]
+            [
+                req.currentUser.id,
+                canonical.member_id_1,
+                canonical.member_id_2,
+                canonical.relationship_type
+            ]
         );
     } catch (error) {
         if (!error.message || !error.message.includes('UNIQUE')) {
@@ -344,10 +351,16 @@ router.post('/:id/edit', validateMemberFields, asyncHandler(async (req, res) => 
             ]
         );
 
+        const canonical = canonicalizeRelationship(req.params.id, req.currentUser.self_member_id, relationship_type);
         await db.run(
             `INSERT INTO relationships (user_id, member_id_1, member_id_2, relationship_type)
             VALUES (?, ?, ?, ?)`,
-            [req.currentUser.id, req.params.id, req.currentUser.self_member_id, relationship_type]
+            [
+                req.currentUser.id,
+                canonical.member_id_1,
+                canonical.member_id_2,
+                canonical.relationship_type
+            ]
         );
     }
 
